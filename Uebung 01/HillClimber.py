@@ -1,14 +1,16 @@
 import random
 from random import randint
+import numpy
+
 
 # Number of cities
-length = 100
-
-# The route as a list of the cities. The list is distinct.
-route = random.sample(range(0, 100), 100)
+citycount = int(100)
 
 # A 2D-matrix with all the distances to the cities.
-distances = [[0 for x in range(length)] for y in range(length)]
+distances = numpy.zeros(shape=(citycount, citycount), dtype=numpy.int)
+
+# The route as a list for the cities. List is distinct
+route = random.sample(range(0, citycount), citycount)
 
 
 # Prints the route
@@ -18,10 +20,10 @@ def print_route():
 
 # Fills the distances matrix with random values
 def set_distances():
-    for x in range(0, length):
-        for y in range(0, length):
+    for x in range(0, citycount):
+        for y in range(0, citycount):
             if x != y:
-                distance = randint(0, length)
+                distance = randint(0, citycount)
 
                 distances[x][y] = distance
                 distances[y][x] = distance
@@ -33,9 +35,9 @@ def print_distances():
 
 
 # Calculates route distance
-def calculate_route_distance():
-    routedistance = int(0)
-    for x in range(0, length - 1):
+def calculate_route_distance(route):
+    routedistance = 0
+    for x in range(0, citycount -1):
         city = route[x]
         nextcity = route[x + 1]
         routedistance += distances[city][nextcity]
@@ -44,47 +46,61 @@ def calculate_route_distance():
 
 
 # Swaps two cities in the route
-def swap_cities(index):
-    city1 = route[index]
-    route[index] = route[index+1]
-    route[index+1] = city1
+def random_swap(cityindex):
+    city2index = cityindex + randint(1, ((citycount-1)-cityindex))
+
+    city1 = route[cityindex]
+    route[cityindex] = route[city2index]
+    route[city2index] = city1
 
 
-print('Starting route: ')
+
+# Calculates the fitness
+def get_fitness(savestate, route):
+    fitness = 0
+    olddistance = calculate_route_distance(savestate)
+    newdistance = calculate_route_distance(route)
+
+    if newdistance < olddistance:
+        fitness = 1
+    elif newdistance > olddistance:
+        fitness = -1
+
+    return fitness
+
+
+print('\nBeginning route: ')
 print_route()
 
 set_distances()
 print('\nDistance matrix: ')
 print_distances()
 
-oldRouteDistance = calculate_route_distance()
-threshold = 1000
-counter = 0
-exitLoop = False
+threshold = 130
+oldfitness = 0
+cityindex = 1
+savestate = []
+if __name__ == '__main__':
+    savestate = list(route)
+    while oldfitness < threshold:
+        random_swap(cityindex)
+        cityindex = cityindex + 1
 
-# Swap cities until oprimal route is found
-while not exitLoop:
-    for x in range(0, length-1):
-        swap_cities(x)
-        newRouteDistance = calculate_route_distance()
+        if cityindex >= citycount-1:
+            cityindex = 0
 
-        # If new route is better then take this route. If not undo swap
-        if newRouteDistance < oldRouteDistance:
-            counter = 0
-            oldRouteDistance = newRouteDistance
-            print(oldRouteDistance)
+        newfitness = oldfitness + get_fitness(savestate, route)
+
+        if newfitness > oldfitness:
+            oldfitness = newfitness
+            savestate = list(route)
         else:
-            swap_cities(x)
-            print(oldRouteDistance)
-            counter = counter + 1
+            route = list(savestate)
 
-            # End it if threshold is reached and now better route can be found
-            if counter >= threshold:
-                exitLoop = True
-                break
+        print(calculate_route_distance(savestate))
 
 
 print('\nBest route: ')
 print_route()
 print('\nDistance: ')
-print(calculate_route_distance())
+print(calculate_route_distance(route))
