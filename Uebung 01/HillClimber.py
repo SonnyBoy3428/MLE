@@ -94,10 +94,9 @@ if __name__ == '__main__':
         if newfitness > oldfitness:
             oldfitness = newfitness
             savestate = list(route)
+            print(calculate_route_distance(savestate))
         else:
             route = list(savestate)
-
-        print(calculate_route_distance(savestate))
 
 
 print('\nBest route: ')
