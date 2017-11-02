@@ -76,7 +76,7 @@ set_distances()
 print('\nDistance matrix: ')
 print_distances()
 
-threshold = 130
+threshold = 125
 oldfitness = 0
 cityindex = 1
 savestate = []
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         cityindex = cityindex + 1
 
         if cityindex >= citycount-1:
-            cityindex = 0
+            cityindex = 1
 
         newfitness = oldfitness + get_fitness(savestate, route)
 
