@@ -10,7 +10,7 @@ import javax.swing.JFrame;
 @SuppressWarnings("serial")
 public class MainFrame extends JFrame {
 
-	final static Random random = new Random();
+	//<editor-fold desc="Not important stuff">
 	public static final int	imageWidth		= 360;
 	public static final int	imageHeight		= 360;
 	public InputOutput		inputOutput		= new InputOutput(this);
@@ -20,9 +20,13 @@ public class MainFrame extends JFrame {
 	Image					renderTarget	= null;
 	public int mousex,mousey,mousek;
 	public int key;
+	//</editor-fold>
 
-	public double[][][] Q = new double[12][12][4];
-
+	/**
+	 * Here the frame is built and configured.
+	 *
+	 * @param args
+	 */
 	public MainFrame(String[] args) {
 		super("PingPong");
 
@@ -38,203 +42,245 @@ public class MainFrame extends JFrame {
 		run();
 	}
 
-	public void run() {
+	// For speed adjustments
+	int miliseconds = 0;
 
-		int xBall=5, yBall=6, xSchlaeger=3, xV=1, yV=1;
-		double learnRate = 0.01;
-		double discount = 0.5;
+	// Frame will display when true
+	public static boolean display = false;
+
+	//The max. positions of the ball, paddle and velocity
+	int maxXBall = 10;
+	int maxYBall = 10;
+	int maxXSchlaeger = 10;
+	int maxXVel = 2;
+	int maxYVel = 2;
+
+	//Matrix with Q-Values for each state and action
+	public double[][] Q = new double[maxXBall*maxYBall*maxXSchlaeger*maxXVel*maxYVel][2];
+
+	int counter = 0;
+	int max_Counter = 100000;
+
+	int lastreward = 0;
+	int lastState = 0;
+	int lastAction = 0;
+
+	/**
+	 * Here we start the program
+	 */
+	public void run() {
+		//Statring points of the ball, the paddle and the ball's velocity
+		int xBall=5, yBall=6, xSchlaeger=5, xV=1, yV=1;
 
 		while (!stop) {
-			//inputOutput.fillRect(0,0,imageWidth, imageHeight, Color.black);
-			//inputOutput.fillRect(xBall*30, yBall*30, 30, 30, Color.green);
-			//inputOutput.fillRect(xSchlaeger*90, 11*30+20, 90, 10, Color.orange);
-			
-			/*double action=(2.0*Math.random()-1.0);
-			if (action<-0.3){
-				xSchlaeger--;
-			}
-			if (action>0.3){
-				xSchlaeger++;
-			}*/
-
-			int reward = 0;
-			boolean rewardReceived = false;
-
-			while(!rewardReceived) {
+			if(display) {
 				inputOutput.fillRect(0,0,imageWidth, imageHeight, Color.black);
 				inputOutput.fillRect(xBall*30, yBall*30, 30, 30, Color.green);
-				inputOutput.fillRect(xSchlaeger*90, 11*30+20, 90, 10, Color.orange);
+				inputOutput.fillRect(xSchlaeger*30, 11*30+20, 90, 10, Color.orange);
+			}
 
-				double tau = 0.01;
-				int action = chooseAction(xBall, yBall, xSchlaeger, tau);
+			//Now we get the state the agent is in within the environment
+			int s = getState(xBall, yBall, xSchlaeger, xV, yV);
 
-				double oldScore = Q[xBall][yBall][xSchlaeger/3];
-				int oldSate = xSchlaeger/3;
-				int oldXBall = xBall;
-				int oldYBall = yBall;
+			//Determine the action to take
+			int action = qLearning(s, lastreward);
 
-				xSchlaeger += action;
+			//Move the paddle according to action
+			if (action==0){
+				xSchlaeger--;
+			}
+			if (action==1){
+				xSchlaeger++;
+			}
 
-				double newScore = Q[xBall][yBall][xSchlaeger/3];
-				int newState = xSchlaeger/3;
+			//We must not let the paddle go out of bounds
+			if (xSchlaeger<0){
+				xSchlaeger=0;
+			}
+			if (xSchlaeger>10){
+				xSchlaeger=10;
+			}
 
-				xBall+=xV;
-				yBall+=yV;
-				if (xBall>9 || xBall<1){
-					xV=-xV;
-				}
-				if (yBall>10 || yBall<1){
-					yV=-yV;
-				}
+			//Here we move the ball according to the set velocity one unit on the X- and Y-Axis
+			xBall+=xV;
+			yBall+=yV;
 
-				/*if (xSchlaeger<0){
-					xSchlaeger=0;
-				}
-				if (xSchlaeger>9){
-					xSchlaeger=9;
-				}*/
+			//If the ball hits a wall it must bounce into the opposite direction regarding the axis
+			if (xBall>9 || xBall<1){
+				xV=-xV;
+			}
+			if (yBall>10 || yBall<1){
+				yV=-yV;
+			}
 
-				if (yBall == 11) {
-					if (xSchlaeger == xBall || xSchlaeger == xBall - 1 || xSchlaeger == xBall - 2) {
-						reward++;
-						rewardReceived = true;
-						//System.out.println("positive reward");
-					} else {
-						reward--;
-						rewardReceived = true;
-						//System.out.println("negative reward");
+			// Reward time:
+			// +1 for a hit
+			// -1 for a miss
+			// 0 for nothing
+			if (yBall==11){
+				if (xSchlaeger==xBall || xSchlaeger==xBall-1 || xSchlaeger==xBall-2){ // Paddle is three units long
+					lastreward = 1;
+
+					if(counter >= max_Counter){
+						System.out.println("Positive reward.");
 					}
 				}
+				else{
+					if(counter >= max_Counter){
+						System.out.println("Negative reward.");
+					}
 
-				Q[oldXBall][oldYBall][oldSate] = oldScore + learnRate * (reward + (discount * getMax(Q[xBall][yBall]))-oldScore);
-
-				try {
-					Thread.sleep(1);                 //1000 milliseconds is one second.
-				} catch(InterruptedException ex) {
-					Thread.currentThread().interrupt();
+					lastreward = -1;
 				}
+			} else {
+				lastreward = 0;
+			}
 
-				validate();
+
+			//This is just to adjust the speed
+			try {
+				Thread.sleep(miliseconds);                 //1000 milliseconds is one second.
+			} catch(InterruptedException ex) {
+				Thread.currentThread().interrupt();
+			}
+
+			//Wait until counter is reached bevore drawing anything
+			if(counter >= max_Counter){
+				miliseconds = 100;
+				display = true;
+				counter = 0;
+			}else{
+				counter++;
+			}
+
+			if(display) {
+				//System.out.println(this.Q[s][action]);
 				repaint();
+				validate();
 			}
 		}
-
-		setVisible(false);
-		dispose();
 	}
 
-	public double getMax(double[] a){
-		double max = 0;
+	/**
+	 * Returns a calculated state. A state consists of the position of the ball(x and y), the paddle (only x) and the velocity of the ball.
+	 *
+	 * @param xBall Position of the ball on the X-Axis
+	 * @param yBall Position of the ball on the Y-Axis
+	 * @param xSchlaeger Position of the paddle on the X-Axis
+	 * @param xV Velocity along the X-Axis
+	 * @param yV Velocity along the Y-Axis
+	 * @return The calculated state
+	 */
+	public int getState(int xBall, int yBall, int xSchlaeger, int xV, int yV){
+		xV += 1;
+		yV += 1;
 
-		for(int i = 0; i < a.length; i++){
-			if(a[i] > max){
-				max = a[i];
+		return (xBall + yBall * maxYBall + xSchlaeger * (maxYBall * maxXSchlaeger)
+				+ xV * (maxYBall *maxXSchlaeger * maxXVel) + yV *(maxYBall *maxXSchlaeger * maxXVel*maxYVel) );
+	}
+
+	/**
+	 * Selects an action based on learned Q-Values
+	 * @param Q
+	 * @return The action
+	 */
+	public int selectAction(double[] Q) {
+		int action = 0;
+		Double value = null;
+
+		// Search the highest computed Q value in order to determine action
+		for(int i = 0; i < Q.length; i++) {
+			if(value == null) {
+				value = Q[i];
+				action = i;
+			} else {
+				if(Q[i] > value) {
+					value = Q[i];
+					action = i;
+				}
 			}
 		}
-
-		return max;
+		return action;
 	}
 
-	public int chooseAction(int xBall, int yBall, int xSchlaeger, double tau){
-		int result = 0;
-		int[] movements = {-3, 0, 3};
-
-
-		if(xSchlaeger == 0){
-			double rightReward = Q[xBall][yBall][(xSchlaeger+3)/3];
-			double stayReward = Q[xBall][yBall][xSchlaeger/3];
-
-			double rightWeight = softMax(xBall, yBall, rightReward, tau);
-			double stayWeight = softMax(xBall, yBall, stayReward, tau);
-
-			if(rightWeight > stayWeight){
-				result = movements[2];
-			}else if(rightWeight < stayWeight){
-				result = movements[1];
-			}else{
-				int randomNumber = 1 + random.nextInt(2);
-				result = movements[randomNumber];
-			}
-		} else if(xSchlaeger == 9){
-			double leftReward = Q[xBall][yBall][(xSchlaeger-3)/3];
-			double stayReward = Q[xBall][yBall][xSchlaeger/3];
-
-			double leftWeight = softMax(xBall, yBall, leftReward, tau);
-			double stayWeight = softMax(xBall, yBall, stayReward, tau);
-
-			if(leftWeight > stayWeight){
-				result = movements[0];
-			}else if(leftWeight < stayWeight){
-				result = movements[1];
-			}else{
-				int randomNumber = random.nextInt(1);
-				result = movements[randomNumber];
-			}
-		} else{
-			double rightReward = Q[xBall][yBall][(xSchlaeger+3)/3];
-			double leftReward = Q[xBall][yBall][(xSchlaeger-3)/3];
-			double stayReward = Q[xBall][yBall][xSchlaeger/3];
-
-			double rightWeight = softMax(xBall, yBall, rightReward, tau);
-			double leftWeight = softMax(xBall, yBall, leftReward, tau);
-			double stayWeight = softMax(xBall, yBall, stayReward, tau);
-
-			if(leftWeight > rightWeight || leftWeight > stayWeight) {
-				result = movements[0];
-			}else if (stayWeight > rightWeight || stayWeight > leftWeight) {
-				result = movements[1];
-			}else if(rightWeight > leftWeight || rightWeight > stayWeight) {
-				result = movements[2];
-			}else{
-				int randomNumber = random.nextInt(2);
-				result = movements[randomNumber];
-			}
+	/**
+	 * The Q-Learning aspect of the algorithm.
+	 *
+	 * @param state The new state
+	 * @param reward The new reward
+	 * @return The next action to take
+	 */
+	public int qLearning(int state, int reward) {
+		int nextAction = selectAction(Q[state]);
+		if(nextAction > 1) {
+			nextAction = 0;
 		}
 
-		return result;
+		//Q-Learning update formula
+		Q[lastState][lastAction] += 0.5 * (reward + 0.5 * this.Q[state][nextAction] - this.Q[lastState][lastAction]); //Slide 64
+
+		//Save the state and action for next iteration
+		lastState = state;
+		lastAction = nextAction;
+
+		return nextAction;
 	}
 
-	public double softMax(int xBall, int yBall, double actionReward, double tau){
-		double numerator = Math.exp(actionReward/tau);
-		double denumerator = 0f;
-
-		for(int i = 0; i < Q[xBall][yBall].length; i++) {
-			denumerator += Math.exp(Q[xBall][yBall][i] / tau);
-		}
-
-		return numerator/denumerator;
-	}
-
+	//<editor-fold desc="Not important stuff">
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mouseReleased(MouseEvent e) {
 		mousex = e.getX();
 		mousey = e.getY();
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mousePressed(MouseEvent e) {
 		mousex = e.getX();
 		mousey = e.getY();
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mouseExited(MouseEvent e) {
 		mousex = e.getX();
 		mousey = e.getY();
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mouseEntered(MouseEvent e) {
 		mousex = e.getX();
 		mousey = e.getY();
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mouseClicked(MouseEvent e) {
 		mousex = e.getX();
 		mousey = e.getY();
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mouseMoved(MouseEvent e) {
 		// System.out.println(e.toString());
 		mousex = e.getX();
@@ -242,23 +288,40 @@ public class MainFrame extends JFrame {
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void mouseDragged(MouseEvent e) {
 		mousex = e.getX();
 		mousey = e.getY();
 		mousek = e.getButton();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void keyTyped(KeyEvent e) {
 		key = e.getKeyCode();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void keyReleased(KeyEvent e) {
 		key = e.getKeyCode();
 	}
 
+	/**
+	 * Not important!
+	 * @param e
+	 */
 	public void keyPressed(KeyEvent e) {
 		System.out.println(e.toString());
 	}
+	//</editor-fold>
 
 	/**
 	 * Construct main frame
