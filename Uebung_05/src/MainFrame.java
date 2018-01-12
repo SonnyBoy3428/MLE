@@ -3,7 +3,6 @@ import java.awt.Image;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.image.ImageObserver;
-import java.util.Random;
 
 import javax.swing.JFrame;
 
@@ -56,14 +55,15 @@ public class MainFrame extends JFrame {
 	int maxYVel = 2;
 
 	//Matrix with Q-Values for each state and action
-	public double[][] Q = new double[maxXBall*maxYBall*maxXSchlaeger*maxXVel*maxYVel][2];
+	//Two actions are possible - left and right
+	public double[][] Q = new double[maxXBall*maxYBall*maxXSchlaeger*maxXVel*maxYVel][2]; // 5424
 
 	int counter = 0;
 	int max_Counter = 100000;
 
-	int lastreward = 0;
-	int lastState = 0;
-	int lastAction = 0;
+	int reward = 0;
+	int state = 0;
+	int action = 0;
 
 	/**
 	 * Here we start the program
@@ -83,7 +83,7 @@ public class MainFrame extends JFrame {
 			int s = getState(xBall, yBall, xSchlaeger, xV, yV);
 
 			//Determine the action to take
-			int action = qLearning(s, lastreward);
+			int action = qLearning(s, reward);
 
 			//Move the paddle according to action
 			if (action==0){
@@ -119,21 +119,21 @@ public class MainFrame extends JFrame {
 			// 0 for nothing
 			if (yBall==11){
 				if (xSchlaeger==xBall || xSchlaeger==xBall-1 || xSchlaeger==xBall-2){ // Paddle is three units long
-					lastreward = 1;
+					reward = 1;
 
-					if(counter >= max_Counter){
+					if(display){
 						System.out.println("Positive reward.");
 					}
 				}
 				else{
-					if(counter >= max_Counter){
+					if(display){
 						System.out.println("Negative reward.");
 					}
 
-					lastreward = -1;
+					reward = -1;
 				}
 			} else {
-				lastreward = 0;
+				reward = 0;
 			}
 
 
@@ -176,7 +176,7 @@ public class MainFrame extends JFrame {
 		yV += 1;
 
 		return (xBall + yBall * maxYBall + xSchlaeger * (maxYBall * maxXSchlaeger)
-				+ xV * (maxYBall *maxXSchlaeger * maxXVel) + yV *(maxYBall *maxXSchlaeger * maxXVel*maxYVel) );
+				+ xV * (maxYBall *maxXSchlaeger * maxXVel) + yV *(maxYBall *maxXSchlaeger * maxXVel * maxYVel) );
 	}
 
 	/**
@@ -193,11 +193,9 @@ public class MainFrame extends JFrame {
 			if(value == null) {
 				value = Q[i];
 				action = i;
-			} else {
-				if(Q[i] > value) {
-					value = Q[i];
-					action = i;
-				}
+			} else if(Q[i] > value) {
+				value = Q[i];
+				action = i;
 			}
 		}
 		return action;
@@ -212,16 +210,16 @@ public class MainFrame extends JFrame {
 	 */
 	public int qLearning(int state, int reward) {
 		int nextAction = selectAction(Q[state]);
-		if(nextAction > 1) {
-			nextAction = 0;
-		}
+		//if(nextAction > 1) {
+		//	nextAction = 0;
+		//}
 
 		//Q-Learning update formula
-		Q[lastState][lastAction] += 0.5 * (reward + 0.5 * this.Q[state][nextAction] - this.Q[lastState][lastAction]); //Slide 64
+		double bla = Q[this.state][action] += 0.5 * (reward + 0.5 * Q[state][nextAction] - Q[this.state][action]); //Slide 64
 
 		//Save the state and action for next iteration
-		lastState = state;
-		lastAction = nextAction;
+		this.state = state;
+		action = nextAction;
 
 		return nextAction;
 	}

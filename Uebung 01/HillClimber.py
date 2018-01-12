@@ -23,7 +23,7 @@ def set_distances():
     for x in range(0, citycount):
         for y in range(0, citycount):
             if x != y:
-                distance = randint(0, citycount)
+                distance = randint(1, citycount)
 
                 distances[x][y] = distance
                 distances[y][x] = distance
