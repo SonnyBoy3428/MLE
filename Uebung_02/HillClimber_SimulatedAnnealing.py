@@ -1,112 +1,139 @@
-from random import *
+import random
 import numpy
-import math
 
 
-# Number of cities
-citycount = int(100)
-
-# A 2D-matrix with all the distances to the cities.
-distances = numpy.zeros(shape=(citycount, citycount), dtype=numpy.int)
-
-# The route as a list for the cities. List is distinct
-route = sample(range(0, citycount), citycount)
+# 100 cities with a maximum distance of 100
+CITY_NUMBER = 100
+MAX_DISTANCE = 100
 
 
-# Prints the route
-def print_route():
-    print(''.join(['{:5}'.format(item) for item in route]))
+# Set distances
+def setDistances(distances):
+    for i in range(0, CITY_NUMBER):
+        for j in range(0,CITY_NUMBER):
+            if(i != j):
+                randomNumber = random.randint(1, CITY_NUMBER+1)
+                distances[i][j] = randomNumber
+                distances[j][i] = randomNumber
+
+    return distances
 
 
-# Fills the distances matrix with random values
-def set_distances():
-    for x in range(0, citycount):
-        for y in range(0, citycount):
-            if x != y:
-                distance = randint(1, citycount)
+# Swap two random cities
+def randomSwap(route):
+    index1 = random.randint(0, CITY_NUMBER-1)
+    index2 = random.randint(0, CITY_NUMBER-1)
 
-                distances[x][y] = distance
-                distances[y][x] = distance
+    while(index1 == index2):
+        index2 = random.randint(0, CITY_NUMBER-1)
 
+    temp = route[index1]
+    route[index1] = route[index2]
+    route[index2] = temp
 
-# Prints the distance matric
-def print_distances():
-    print('\n'.join([''.join(['{:5}'.format(item) for item in row]) for row in distances]))
-
-
-# Calculates route distance
-def calculate_route_distance(route):
-    routedistance = 0
-    for x in range(0, citycount -1):
-        city = route[x]
-        nextcity = route[x + 1]
-        routedistance += distances[city][nextcity]
-
-    return routedistance
+    return route
 
 
-# Swaps two cities in the route
-def random_swap(cityindex):
-    city2index = cityindex + randint(1, ((citycount-1)-cityindex))
-
-    city1 = route[cityindex]
-    route[cityindex] = route[city2index]
-    route[city2index] = city1
+# Calculate probability
+def calculateProbability(fitness, lastFitness, temperature):
+    return numpy.exp((fitness - lastFitness)/temperature)
 
 
+# Calculates total distance of route
+def calculateTotalDistance(route, distances):
+    totalDistance = 0
 
-# Calculates the fitness
-def get_fitness(savestate, route):
-    fitness = 0
-    olddistance = calculate_route_distance(savestate)
-    newdistance = calculate_route_distance(route)
+    for i in range(0,CITY_NUMBER):
+        totalDistance += distances[route[i]][route[i+1]]
 
-    if newdistance < olddistance:
-        fitness = 1
-    elif newdistance > olddistance:
-        fitness = -1
+        if (i+1) == (CITY_NUMBER-1):
+            break
 
-    return fitness
+    return totalDistance
 
 
-print('\nBeginning route: ')
-print_route()
+# Calculates the fitness of current round trip
+def calculateFitness(totalDistance):
+    return totalDistance*(-1)
 
-set_distances()
-print('\nDistance matrix: ')
-print_distances()
 
-oldfitness = 0
-cityindex = 1
-savestate = []
-temperature = 1.25
-epsilon = 0.00001
+# Prints the results of the round
+def printRoundResults(round, route, lastFitness):
+    print('Round %d results:' % (round+1))
+    print('Route: %s ' % route)
+    print('Distance: %d' % (lastFitness*(-1)))
+    print('------------------------------------')
+
+
+# Determines best route
+def determineBestRoute(bestDistances):
+    index = 0
+    minDistance = bestDistances[index]
+    for i in range(1,3):
+        if(bestDistances[i] < minDistance):
+            minDistance = bestDistances[i]
+            index = i
+
+    return index
+
+
+route = None
+distances = None
+bestRoutes = None
+bestDistances = None
+
+
+# Main method
 if __name__ == '__main__':
-    savestate = list(route)
-    while temperature > epsilon:
-        random_swap(cityindex)
-        cityindex += 1
+    distances = numpy.zeros(shape=(CITY_NUMBER,CITY_NUMBER))
 
-        if cityindex >= citycount-1:
-            cityindex = 1
+    bestRoutes = []
+    bestDistances = []
 
-        newfitness = oldfitness + get_fitness(savestate, route)
+    round = 0
 
-        if newfitness > oldfitness:
-            oldfitness = newfitness
-            savestate = list(route)
-            print(calculate_route_distance(savestate))
-        elif uniform(0, 1) < math.exp((newfitness-oldfitness)/temperature):
-            oldfitness = newfitness
-            savestate = list(route)
-            print(calculate_route_distance(savestate))
-        else:
-            route = list(savestate)
+    # Let's try a best out of three
+    while round < 3:
+        route = random.sample(range(0, CITY_NUMBER), CITY_NUMBER)
+        distances = setDistances(distances)
 
-        temperature -= epsilon
+        # Calculate first fitness
+        totalDistance = calculateTotalDistance(route, distances)
+        lastFitness = calculateFitness(totalDistance)
+
+        temperature = 10
+        epsilon = 0.0001
+
+        print('****** Round %d ******' % (round+1))
+
+        while temperature > epsilon:
+            saveState = list(route)
+
+            # Swap two random cities
+            route = randomSwap(route)
+
+            # Calculate first fitness
+            totalDistance = calculateTotalDistance(route, distances)
+            fitness = calculateFitness(totalDistance)
 
 
-print('\nBest route: ')
-print_route()
-print('\nDistance: ')
-print(calculate_route_distance(route))
+            if fitness > lastFitness:
+                lastFitness = fitness
+                print('Current distance: %d' % ((-1)*lastFitness))
+            elif (random.uniform(0,1)) < calculateProbability(fitness, lastFitness, temperature):
+                print('Current probability: %f, Current distance: %d' % (calculateProbability(fitness, lastFitness, temperature), ((-1) * fitness)))
+                lastFitness = fitness
+            else:
+                route = list(saveState)
+
+            temperature -= epsilon
+
+        bestRoutes.append(route)
+        bestDistances.append((lastFitness*(-1)))
+        printRoundResults(round, route, lastFitness)
+        round += 1
+
+    index = determineBestRoute(bestDistances)
+
+    print('Best route is route %d: %s' % ((index+1), bestRoutes[index]))
+    print('with the distance %d' % bestDistances[index])
